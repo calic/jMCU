@@ -1,0 +1,10 @@
+class Peer
+  constructor: (@id, nick, @audioContext)->
+    @nick       = nick || undefined
+    @color      = undefined
+    @pc         = undefined
+    @fromPeer   = @audioContext.createGain()
+    @toPeer     = @audioContext.createGain()
+    console.log 'peer created'
+    
+(do -> this).Peer = Peer

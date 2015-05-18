@@ -1,0 +1,66 @@
+<div id="chat">
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-sm-12">
+        <h4 class="title">
+          <span id ='room'> lobby </span>
+          <span id = 'topic'></span>
+        </h4>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-sm-8">
+        <ul id="messages"></ul>
+        <div id="in" class="well well-sm col-sm-8">
+          <form id="input" class="form-inline" action="">
+            <div class="input-group col-sm-12">
+              <input id="message" class="form-control" autocomplete="off" />
+              <send class="input-group-addon btn">Send</send>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div id="memberList", class="col-sm-4">
+        <template id="peer">
+          <div class="media" style="overflow: visible;">
+            <div class="media-left">
+              <span class="media-object glyphicon glyphicon-user" style="position:relative; font-size:4.0em; width:60px; height: 60px;" aria-hidden="true"></span>
+            </div>
+            <div class="media-body" style="overflow: visible;">
+              <h4 class="media-heading"><span class="peer-name">Me</span> <small class="peer-role"></small></h4>
+              <div class="btn-group btn-group-sm" role="group" aria-label="options">
+                <button type="button" class="btn btn-default" aria-label="mute">
+                  <span class="glyphicon glyphicon-volume-off" aria-hidden="true"></span>
+                </button>
+                <button type="button" class="btn btn-default" aria-label="solo">
+                  <span class="glyphicon glyphicon-volume-up" aria-hidden="true"></span>
+                </button>
+                <button type="button" class="btn btn-default" aria-label="options">
+                  <span class="glyphicon glyphicon-cog" aria-hidden="true"></span>
+                </button>
+                <div class="btn-group btn-group-sm" role="group">
+                  <button class="btn btn-default dropdown-toggle" type="button" id="dropdownMenu1" data-toggle="dropdown" aria-expanded="true">
+                    <span class="glyphicon glyphicon-option-vertical" aria-hidden="true"></span>
+                  </button>
+                  <ul class="dropdown-menu dropdown-menu-right" role="menu" aria-labelledby="dropdownMenu1">
+                    <li role="presentation"><a role="menuitem" tabindex="-1" href="#">Action</a></li>
+                    <li role="presentation"><a role="menuitem" tabindex="-1" href="#">Another action</a></li>
+                    <li role="presentation"><a role="menuitem" tabindex="-1" href="#">Something else here</a></li>
+                    <li role="presentation"><a role="menuitem" tabindex="-1" href="#">Separated link</a></li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+  </div>
+</div>
+<script>
+  ((function() {
+    return this;
+  })()).chat = new Chat($('#chat'));
+</script>

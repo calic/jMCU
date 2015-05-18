@@ -1,0 +1,35 @@
+# WebAudio NodePipeline to detect the input Volume and nullify
+# the contect if Volume falls below threshhold
+#
+# @param audioContext [audioContext] audioContext this Node will be used in
+# @param muteValue    [Float]        Value at which the content of the input Stream will be nullified TODO
+# @param unmuteValue  [Float]        Value at which the input stream can pass
+#
+createCompressor = (audioContext, context, muteValue, unmuteValue, samplerate) ->
+  node                      = createVolumeDetection2 audioContext, samplerate
+  node.gainNode             = audioContext.createGain()
+  node.muteValue            = muteValue
+  node.unmuteValue          = unmuteValue
+  node.state                = false
+  node.connect node.gainNode
+  node.old_connect = node.connect
+  node.connect = ->
+    @gainNode.connect arguments...
+
+  node.on 'volume', (volume) ->
+    if volume <= node.muteValue and node.state
+      node.gainNode.gain.value = 0
+      node.emit 'mute', node.vd
+      node.state = false
+      #console.log "mute"
+      context.emit 'mute'
+    else if volume > node.unmuteValue and not node.state
+      node.gainNode.gain.value = 1
+      node.emit 'unmute', node.vd
+      node.state = true
+      #console.log "unmute"
+      context.emit 'unmute'
+
+  node
+
+(do -> this).createCompressor = createCompressor

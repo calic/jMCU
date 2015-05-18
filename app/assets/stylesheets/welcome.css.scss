@@ -1,0 +1,13 @@
+// Place all the styles related to the welcome controller here.
+// They will automatically be included in application.css.
+// You can use Sass (SCSS) here: http://sass-lang.com/
+
+#in { position: fixed; bottom: 0; margin: 0;}
+#messages {margin-bottom: 100px;}
+#messages { list-style-type: none; margin: 0; padding: 0; }
+#messages li { padding: 5px 10px; }
+#messages li:nth-child(odd) { background: #eee; }
+#messages span.nick:before { content: '['; }
+#messages span.nick:after { content: ']: '; }
+#messages li.help .cmd:after { content: ': ';}
+#messages li.help .cmd:before { content: '/';}

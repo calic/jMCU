@@ -1,0 +1,115 @@
+include = (obj, klass) ->
+  for key, value of klass
+    obj[key] = value
+
+Events =
+  bind: ->
+    ev = arguments[0]
+    info = if arguments.length > 2 then arguments[1] else undefined
+    callback = if arguments.length > 2 then arguments[2] else arguments[1]
+
+    evs   = ev.split(' ')
+    @_callbacks or= {} unless @hasOwnProperty('_callbacks')
+    @_infos or= {} unless @hasOwnProperty('_infos')
+    for name in evs
+      @_callbacks[name] or= []
+      @_callbacks[name].push(callback)
+      if info
+        @_infos[name] or= []
+        @_infos[name].push(info)
+
+    this
+
+  one: (ev, callback) ->
+    @bind ev, handler = ->
+      @unbind(ev, handler)
+      callback.apply(this, arguments)
+
+  trigger: (args...) ->
+    ev   = args.shift()
+    list = @_callbacks?[ev]
+    return unless list
+    for callback in list
+      break if callback.apply(this, args) is false
+    true
+
+  listenTo: (obj, ev, callback) ->
+    obj.bind(ev, callback)
+    @listeningTo or= []
+    @listeningTo.push {obj, ev, callback}
+    this
+
+  listenToOnce: (obj, ev, callback) ->
+    listeningToOnce = @listeningToOnce or= []
+    obj.bind ev, handler = ->
+      idx = -1
+      for lt, i in listeningToOnce when lt.obj is obj
+        idx = i if lt.ev is ev and lt.callback is handler
+      obj.unbind(ev, handler)
+      listeningToOnce.splice(idx, 1) unless idx is -1
+      callback.apply(this, arguments)
+    listeningToOnce.push {obj, ev, callback: handler}
+    this
+
+  stopListening: (obj, events, callback) ->
+    if arguments.length is 0
+      for listeningTo in [@listeningTo, @listeningToOnce]
+        continue unless listeningTo
+        for lt in listeningTo
+          lt.obj.unbind(lt.ev, lt.callback)
+      @listeningTo = undefined
+      @listeningToOnce = undefined
+
+    else if obj
+      for listeningTo in [@listeningTo, @listeningToOnce]
+        continue unless listeningTo
+        events = if events then events.split(' ') else [undefined]
+        for ev in events
+          for idx in [listeningTo.length - 1..0]
+            lt = listeningTo[idx]
+            continue unless lt.obj is obj
+            continue if callback and lt.callback isnt callback
+            if (not ev) or (ev is lt.ev)
+              lt.obj.unbind(lt.ev, lt.callback)
+              listeningTo.splice(idx, 1) unless idx is -1
+            else if ev
+              evts = lt.ev.split(' ')
+              if ev in evts
+                evts = (e for e in evts when e isnt ev)
+                lt.ev = $.trim(evts.join(' '))
+                lt.obj.unbind(ev, lt.callback)
+    this
+
+  unbind: (ev, callback) ->
+    if arguments.length is 0
+      @_callbacks = {}
+      return this
+    return this unless ev
+    evs = ev.split(' ')
+    for name in evs
+      list = @_callbacks?[name]
+      continue unless list
+      unless callback
+        delete @_callbacks[name]
+        continue
+      for cb, i in list when (cb is callback)
+        list = list.slice()
+        list.splice(i, 1)
+        @_callbacks[name] = list
+        break
+    this
+
+  info: (ev) ->
+    if ev in @_infos
+      @_infos
+    else
+      undefined
+
+  infos: ->
+    @_infos
+
+  on: -> @bind arguments...
+  emit: -> @trigger arguments...
+  off: -> @unbind arguments...
+
+

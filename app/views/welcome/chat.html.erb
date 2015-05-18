@@ -1,0 +1,44 @@
+<div id="chat">
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-sm-12">
+        <h4 class="title">
+          <span id ='room'> lobby </span>
+          <span id = 'topic'></span>
+        </h4>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-sm-8">
+        <ul id="messages"></ul>
+        <div id="in" class="well well-sm col-sm-8">
+          <form id="input" class="form-inline" action="">
+            <div class="input-group col-sm-12">
+              <input id="message" class="form-control" autocomplete="off" />
+              <send class="input-group-addon btn">Send</send>
+            </div>
+          </form>
+        </div>
+      </div>
+      <div id="memberList", class="col-sm-4">
+        <template id="peer">
+          <div class="media" style="overflow: visible;">
+            <div class="media-left">
+              <span class="media-object glyphicon glyphicon-user" style="position:relative; font-size:4.0em; width:60px; height: 60px;" aria-hidden="true"></span>
+            </div>
+            <div class="media-body" style="overflow: visible;">
+              <h4 class="media-heading"><span class="peer-name">Me</span> <small class="peer-role"></small></h4>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+  </div>
+</div>
+<script>
+  ((function() {
+    return this;
+  })()).chat = new Chat($('#chat'));
+</script>

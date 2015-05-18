@@ -1,0 +1,283 @@
+class Chat
+  constructor: (@el) ->
+    @audioContext         = new (window.AudioContext || window.webkitAudioContext)()
+    @peerManager          = new PeerManager @audioContext
+    @server               = new Server()
+    @input                = new Input @el.find '#input'
+    @output               = new Output @el.find '#messages'
+    @webRTC               = new WebRTC @peerManager, @audioContext
+    @mcuCountdown         = undefined
+    @mcuBuffer            = []
+    @joinBuffer           = undefined
+
+    ##############################
+    #
+    # Chatinput handling
+    #
+    ##############################
+
+    # default textchat input callback
+    # will send a message to all peers
+    @input.on 'message', "Write a message to the group (Default)", (text, type) =>
+      @server.send
+        type: type || 'message'
+        text: text
+
+    # will send a whisper message to the given peer
+    @input.on 'msg',     "Write a message to the given member", (param) =>
+      firstSpace = param.indexOf " "
+      firstSpace = param.length if firstSpace == -1
+      text = param.substr firstSpace, param.length
+      recipient = param.substr 0, firstSpace
+      recipient = @peerManager.findPeerByNick(recipient).id || recipient
+      @server.send
+        type: 'message'
+        recipient: recipient
+        text: text
+
+    # will change the own textchat alias
+    @input.on 'nick', "Set nickname", (param) => 
+      @server.setnick param
+      @peerManager.nick = param
+
+    # handles input requesting to change the topic of a room
+    @input.on 'topic', "Set the Topic of this room", (param)=>
+      @server.send
+        type : 'topic'
+        topic: param
+
+    # will list all specified textchat commands
+    @input.on 'help', "Shows this information", =>
+      li    = $('<li class="help">')
+      for name, info of @input.infos()
+        div   = $('<div>')
+        cmd   = $('<span class="cmd">').text name
+        info  = $('<span class="info">').text info
+        @output.print li.append div.append cmd, info
+
+    # handles input requesting to join the given room
+    @input.on 'join', "Switches to a Room with given name", (param) =>
+      if @webRTC.localStream?
+        @changeRoom param
+      else
+        @joinBuffer = param
+
+    # handles input requesting to leave the room
+    @input.on 'leave', "Switches back to the Lobby", (param) =>
+      @changeRoom 'lobby'
+    
+    ##############################
+    #
+    # Peer informations
+    #
+    ##############################
+
+    # will notify peers about voice activity    
+    @webRTC.on 'mute', (data) =>
+      @peerManager.voiceActivity false, @peerManager.id
+      @server.send
+        type: 'mute'
+        
+    # will notify peers about voice activity
+    @webRTC.on 'unmute', (data) =>
+      @peerManager.voiceActivity true, @peerManager.id
+      @server.send
+        type: 'unmute'
+    
+    ##############################
+    #
+    # WebRTC Signaling
+    #
+    ##############################
+
+    # will redirect offer to specific peer
+    @webRTC.on 'offer', (data) =>
+      console.log data
+      @server.send
+        type: 'offer'
+        recipient: data.recipient
+        desc: data.offer
+        
+    # will redirect the answer to specific peer
+    @webRTC.on 'answer', (data) =>
+      @server.send
+        type: 'answer'
+        recipient: data.recipient
+        desc: data.answer
+        
+    # will share recieved candidates with other peers
+    @webRTC.on 'candidate', (candidate) =>
+      @server.send
+        type: 'candidate'
+        candidate: candidate
+    
+    # will change rooms if requested after access to userMedia was granted
+    @webRTC.on 'userMediaPrepared', (data) =>
+      if @joinBuffer?
+        @changeRoom @joinBuffer
+
+
+    ##############################
+    #
+    # Serversignal handling
+    #
+    ##############################
+
+    # will finish the initial connection to the Signaling-Server
+    @server.on 'setup', (id) =>
+      @peerManager.setReady id
+      @server.room = 'lobby'
+      @server.send
+        type: 'join'
+      @peerManager.createOwnIdentifier()
+      
+
+    # prints incoming messages
+    @server.on 'message', (data) =>
+      @output.print(
+        $('<li class="msg">')
+          .append $('<span class="nick">').text data.nick
+          .append $('<span class="msg">').text data.text
+      )
+
+    # prints incoming whisper messages
+    @server.on 'msg', (data) =>
+      @output.print $('<li class="msg">')
+        .append $('<span class="nick">').text data.nick
+        .append $('<span class="msg">').text data.text
+
+    # notifies that someone in the room changed his nick
+    @server.on 'nickchange', (data) =>
+      @peerManager.changePeerNick(data.sender, data.nick)
+      @output.print $('<li class="nick">').text "#{data.text} changed name to #{data.nick}"
+
+    # notifies when someone sets a topic for your room
+    @server.on 'topic', (data) =>
+      topic = 'Topic: ' + data.topic
+      $(document.getElementById('topic')).replaceWith $('<span id ="topic">').text topic
+      @output.print $('<li class="topic">').text "#{data.text} changed the topic to #{data.topic}"
+
+    # notifies when someone joines your room
+    @server.on 'join', (data) =>
+      console.log 'on join'
+      if data.sender == @peerManager.id then return
+      console.log data.sender, 'joined your room'
+      peer = @peerManager.addPeer(data.sender, data.nick)
+      @server.send
+        type: 'alive'
+        recipient: data.sender
+      if @peerManager.isMCU()
+        @webRTC.connect peer
+        @server.send
+          type: 'mcuDeclaration'
+      else @mcuBuffer.push peer
+      @output.print $('<li class="join">').text "#{data.nick} joined the room"
+
+    # notifies when someone leaves your room
+    @server.on 'leave', (data) =>
+      @peerManager.removeIdentifier data.sender
+      if @peerManager.mcu == data.sender
+        $('#messages').append $('<li><i>').text "#{data.nick}, the Sesession-Host, has left the room"
+        @peerManager.mcu = undefined
+        @changeRoom 'lobby'
+      else
+        @output.print $('<li class="join">').text "#{data.nick} has left the room"
+      @peerManager.removePeerById data.sender
+
+    # WebRTC: reroutes received candidates
+    @server.on 'candidate', (data) =>
+      console.log 'on candidate'
+      @webRTC.receiveCandidate data.sender, data.candidate
+
+    # WebRTC: reroutes received offers
+    @server.on 'offer', (data) =>
+      console.log 'on offer from ', data.sender
+      @webRTC.receiveOffer data.sender, data.desc
+
+    # WebRTC: reroutes recieved answers
+    @server.on 'answer', (data) =>
+      console.log 'on answer'
+      @webRTC.receiveAnswer data.sender, data.desc
+
+    # notifies when new connections are set up
+    @server.on 'connect', (data) =>
+      parse = location.hash
+      if parse != ""
+        parse = parse.substr 1
+        texts = parse.split ';'
+        for text in texts
+          $('#message').val text
+          @input.send
+            preventDefault: -> true
+      console.log 'on connection'
+      $(document.getElementById('room')).replaceWith $('<span id ="room">').text "room: #{@server.room}"
+      return if data.sender == @server.id
+      $('#messages').append $('<li><i>').text "#{data.nick or data.sender} connected"
+
+    # notifies when current connections are destroyed
+    @server.on 'disconnect', (data) =>
+      @peerManager.removeIdentifier data.sender
+      return if data.sender == @server.id
+      if @peerManager.mcu == data.sender
+        $('#messages').append $('<li><i>').text "#{data.nick or data.sender}, the Sesession-Host, disconnected"
+        @changeRoom 'lobby'
+      else
+        $('#messages').append $('<li><i>').text "#{data.nick or data.sender} disconnected"
+      @peerManager.removePeerById(data.sender)
+
+    # cancels own mcuSetup and sets mcu
+    @server.on 'mcuDeclaration', (data) =>
+      if data.sender == @peerManager.id then return
+      clearTimeout @mcuCountdown
+      if not @peerManager.mcu?
+        @peerManager.mcu = data.sender
+        peer = @peerManager.addPeer data.sender, data.nick
+        console.log peer
+        console.log 'mcu declaration accepted from ', data.sender
+        @webRTC.connect(peer)
+        @peerManager.setMCUIdentifier()
+
+    # adds all responding Peers to peerList
+    @server.on 'alive', (data) =>
+      console.log 'alive received', data.sender
+      @peerManager.addPeer data.sender, data.nick
+      
+    # identifies Peers voiceactivity
+    @server.on 'mute', (data) =>
+      @peerManager.voiceActivity(false, data.sender)
+      
+    # identifies Peers voiceactivity
+    @server.on 'unmute', (data) =>
+      @peerManager.voiceActivity(true, data.sender)
+      
+  # helping function for roomchanges
+  # leaves current room, joins given room and initiates mcuClaim
+  changeRoom: (room) ->
+    $(document.getElementById('room')).replaceWith $('<span id ="room">').text "room: #{room}"
+    @server.send type: 'leave'
+    @peerManager.mcu = undefined
+    console.log 'clear peers'
+    @peerManager.clearPeers()
+    oldroom = @server.room
+    @server.room = room
+    @server.send
+      type: 'join'
+      oldroom: oldroom
+    @mcuCountdown = setTimeout (=> @setupMCU()), 2000 if room != 'lobby'
+    @output.print $('<li class="join">').text "You joined: #{room}"
+    @peerManager.createOwnIdentifier()
+
+  # will be initiates 2000ms after changeRoom if no mcu has responded
+  # all known Peers will be connected and notified
+  setupMCU: ->
+    console.log 'declared myself mcu and notified all peers'
+    @peerManager.mcu = @peerManager.id
+    @peerManager.setMCUIdentifier()
+    @webRTC.setupMCU()
+    for peer in @mcuBuffer
+      @webRTC.connect peer
+      @server.send
+        type: 'mcuDeclaration'
+        recipient: peer.id
+
+(do -> this).Chat = Chat

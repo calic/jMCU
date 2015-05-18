@@ -1,0 +1,59 @@
+jMCU
+
+This is a basic aplication for group-conferences with WebRTC.
+Those conferences are audio-only and will connect due to a simple 
+javascript mcu running in the Browser of the first peer joining a room.
+This serves the purpose of eliminating the need of a dedicated mcu and 
+keeping the bandwidth smaller than with mesh-topology.
+
+Due to the Chrome-Bug ``Issue 121673``, only Firefox-Nightly is supported
+
+Setup
+
+To start the project and test is at your own you have to do the following:
+
+1. Install 
+   - Rails  4.1.10
+   - Ruby   2.1.2p95
+   - Nodejs 0.10.25
+   (other version may also work)
+2. Clone the repo: ``git clone git@github.com:calic/jmcu.git``
+3. Install all the gems with ```bundle install```
+4. Go to ``app/Signaling-Server/`` and run ``npm install`` to install 
+   the dependencies of the signaling server
+5. Enter the Adress of the Signaling-Server in 
+   ``app/assets/javascript/server.js.coffee`` at ``@socket = io.connect('127.0.0.1:8000')``
+5. Start the server with ```rails server```
+6. Start the NodeJs server with 
+   ``nodejs Signaling-Server/node_modules/.bin/coffee -w Signaling-Server/server.coffee ``
+7. Go to the URL: ``localhost:3000``
+
+Usage
+
+In the Lobby, the first ``room``, no audio-chat is possible.
+To change the room, enter ``/join room`` at the chat interface.
+To get a list of all other commands, enter ``/help`` at the chat input.
+
+Objectives
+
+For acceptable behavior, futher modification is nedded.
+
+1. Fix ugly Interface
+2. Further reduction of Latency
+3. supporting mcu-declaration for slow Signaling-Servers
+4. Fix random failing ICE-Setup
+5. Add Interface to modify local Audiopipeline
+6. Add digital Whiteboard
+7. Add persistant Accounts
+
+Collaborate
+
+This project is inspired by XescuGC and cwilso and uses multiple third-party librarys.
+(jRumble, jquery, adapter.js, socket.io)
+
+You can use/fork this code in whatever way you want.
+Feel free to participate if you have usefull ideas.
+
+Contact
+
+email: axel.meyer@durania.net
